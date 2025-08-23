@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kodiak Service Report</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; line-height: 1.4; }
+    header { text-align: center; margin-bottom: 1rem; }
+    .card { max-width: 560px; margin: 0 auto; border: 1px solid #ddd; padding: 1rem; border-radius: 12px; }
+    label { display: block; margin-top: .75rem; font-weight: 600; }
+    input[type="file"], textarea { width: 100%; margin-top: .5rem; }
+    button { margin-top: 1rem; padding: .6rem 1rem; border: 0; border-radius: 8px; cursor: pointer; }
+    .primary { background: #2b5cff; color: #fff; }
+    .muted { color: #666; font-size: .95rem; }
+    .ok { color: #0a7f2e; }
+    .err { color: #b00020; }
+    .logo { display:block; margin: 0 auto 8px; height: 60px; }
+  </style>
+</head>
+<body>
+  <header>
+    <img class="logo" src="/public/logo.png" alt="Kodiak Logo"/>
+    <h2>Report Equipment Damage / Service</h2>
+    <p class="muted">Scan brought you here. Complete the form and submit. We’ll handle the rest.</p>
+  </header>
+
+  <div class="card">
+    <div id="status" class="muted">Validating QR token…</div>
+    <form id="form" style="display:none">
+      <input type="hidden" id="token" name="token"/>
+      <label>Equipment ID</label>
+      <div id="shortId" class="muted"></div>
+
+      <label for="desc">Describe the issue</label>
+      <textarea id="desc" name="description" rows="5" placeholder="What happened? Where is the damage?"></textarea>
+
+      <label for="photos">Add photos (JPG/PNG, up to 5)</label>
+      <input id="photos" type="file" name="photos" multiple accept="image/png, image/jpeg"/>
+
+      <button type="submit" class="primary">Submit Report</button>
+    </form>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token') || '';
+    document.getElementById('token').value = token;
+
+    async function validate() {
+      const res = await fetch('/api/report?token=' + encodeURIComponent(token));
+      const el = document.getElementById('status');
+      if (res.ok) {
+        const data = await res.json();
+        el.textContent = 'Equipment identified.';
+        el.className = 'ok';
+        document.getElementById('shortId').textContent = data.shortId;
+        document.getElementById('form').style.display = 'block';
+      } else {
+        el.textContent = 'Invalid or expired QR token.';
+        el.className = 'err';
+      }
+    }
+
+    validate();
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData();
+      fd.append('token', token);
+      fd.append('description', document.getElementById('desc').value);
+      const files = document.getElementById('photos').files;
+      for (let i = 0; i < Math.min(files.length, 5); i++) fd.append('photos', files[i]);
+
+      const res = await fetch('/api/report', { method: 'POST', body: fd });
+      const el = document.getElementById('status');
+      if (res.ok) {
+        el.textContent = 'Report submitted. Thank you!';
+        el.className = 'ok';
+        document.getElementById('form').reset();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        el.textContent = 'Submit failed: ' + (err.error || res.statusText);
+        el.className = 'err';
+      }
+    });
+  </script>
+</body>
+</html>

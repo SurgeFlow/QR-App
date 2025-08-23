@@ -1,0 +1,15 @@
+{
+  "name": "kodiak-qr-app",
+  "private": true,
+  "workspaces": [
+    "api",
+    "admin"
+  ],
+  "scripts": {
+    "dev": "concurrently -n API,ADMIN -c auto \"npm --workspace api run dev\" \"npm --workspace admin run dev\"",
+    "prisma:reset": "npm --workspace api run prisma:reset"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
