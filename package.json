@@ -10,6 +10,10 @@
     "prisma:reset": "npm --workspace api run prisma:reset"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0"
+    "concurrently": "^9.0.0",
+    "prisma": "^6.16.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.3"
   }
 }
