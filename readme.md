@@ -5,4 +5,4 @@
   - Using a custom launch script, this will start all 3 apps in separate powershell prompts
 3. You can view the apps in a web browser here:
   - Primary app:  [http://localhost:8000](http://localhost:8000)
-  - frontend app (in the admin folder): [http://localhost:5174/](http://localhost:5174/)
+  - frontend app (in the admin folder): [http://localhost:5173/](http://localhost:5173/)
