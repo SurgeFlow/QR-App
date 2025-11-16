@@ -9,4 +9,5 @@
 
 ## SQLite database for the API
 1. Copy `api/.env.example` to `api/.env` and adjust the values as needed. The default `DATABASE_URL` points Prisma at a SQLite database stored at `api/prisma/dev.db`.
-2. From the repo root, run `npm install` to ensure Prisma is available, then initialize the database with `npm run prisma:reset`. This will push the schema to the SQLite file and run the seed script.
+2. From the repo root, run `npm install` to ensure Prisma is available.
+3. When you start the API (`npm --workspace api run dev`), it will automatically create the SQLite database if it is missing or apply any Prisma migrations present in `api/prisma/migrations`. You can still reset/seed manually with `npm run prisma:reset` if needed.

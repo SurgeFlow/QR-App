@@ -7,8 +7,11 @@ import rateLimit from 'express-rate-limit';
 import adminRoutes from './routes/admin.js';
 import publicRoutes from './routes/public.js';
 import fs from 'fs';
+import { ensureDatabase } from './utils/database.js';
 
 const app = express();
+
+await ensureDatabase();
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
