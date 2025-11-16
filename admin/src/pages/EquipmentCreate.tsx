@@ -1,22 +1,45 @@
 import React, { useMemo, useState } from 'react'
+import { API_BASE_URL, api } from '../utils/api'
 
 interface EquipmentForm {
-  equipmentName: string
-  manufacturer: string
-  model: string
   serialNumber: string
+  model: string
   location: string
-  purchaseDate: string
+  installedAt: string
   notes: string
 }
 
+interface CreatedEquipmentResponse {
+  equipment: {
+    id: string
+    shortId: string
+    serialNumber?: string
+    model?: string
+    location?: string
+    installedAt?: string
+    notes?: string
+  }
+  labelUrl: string
+  token: string
+}
+
+interface EquipmentWithQr {
+  id: string
+  shortId: string
+  serialNumber?: string
+  model?: string
+  location?: string
+  installedAt?: string
+  notes?: string
+  createdAt: string
+  qrcodes: { id: string; encryptedToken: string }[]
+}
+
 const fieldLabels: Record<keyof EquipmentForm, string> = {
-  equipmentName: 'Equipment name',
-  manufacturer: 'Manufacturer',
-  model: 'Model',
   serialNumber: 'Serial number',
+  model: 'Model',
   location: 'Location',
-  purchaseDate: 'Purchase date',
+  installedAt: 'Installed at',
   notes: 'Notes'
 }
 
@@ -53,18 +76,20 @@ const cardStyle: React.CSSProperties = {
 
 export default function EquipmentCreate() {
   const [formData, setFormData] = useState<EquipmentForm>({
-    equipmentName: '',
-    manufacturer: '',
-    model: '',
     serialNumber: '',
+    model: '',
     location: '',
-    purchaseDate: '',
+    installedAt: '',
     notes: ''
   })
 
-  const [submitted, setSubmitted] = useState<EquipmentForm | null>(null)
+  const [submitted, setSubmitted] = useState<CreatedEquipmentResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [existing, setExisting] = useState<EquipmentWithQr[]>([])
+  const [loadingExisting, setLoadingExisting] = useState(false)
 
-  const requiredFields = useMemo(() => ['equipmentName', 'serialNumber'], [])
+  const requiredFields = useMemo(() => ['serialNumber', 'model'], [])
 
   function handleChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -73,22 +98,57 @@ export default function EquipmentCreate() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setSubmitted(formData)
+    setError(null)
+    setLoading(true)
+
+    try {
+      const payload = {
+        serialNumber: formData.serialNumber || undefined,
+        model: formData.model || undefined,
+        location: formData.location || undefined,
+        installedAt: formData.installedAt ? new Date(formData.installedAt).toISOString() : undefined,
+        notes: formData.notes || undefined
+      }
+
+      const response = await api.post<CreatedEquipmentResponse>('/admin/equipment', payload)
+      setSubmitted(response.data)
+      await loadExisting()
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Unable to save equipment details')
+    } finally {
+      setLoading(false)
+    }
   }
+
+  async function loadExisting() {
+    setLoadingExisting(true)
+    try {
+      const response = await api.get<EquipmentWithQr[]>('/admin/equipment')
+      setExisting(response.data)
+    } catch (e: any) {
+      setError('Failed to load existing equipment')
+    } finally {
+      setLoadingExisting(false)
+    }
+  }
+
+  React.useEffect(() => {
+    loadExisting()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function resetForm() {
     setFormData({
-      equipmentName: '',
-      manufacturer: '',
-      model: '',
       serialNumber: '',
+      model: '',
       location: '',
-      purchaseDate: '',
+      installedAt: '',
       notes: ''
     })
     setSubmitted(null)
+    setError(null)
   }
 
   return (
@@ -96,7 +156,7 @@ export default function EquipmentCreate() {
       <section style={cardStyle}>
         <header style={{ display: 'flex', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ color: '#6b7280', margin: 0 }}>Create & Print</p>
+            <p style={{ color: '#6b7280', margin: 0 }}>Create &amp; Print</p>
             <h2 style={{ margin: '4px 0 0' }}>Enter equipment details</h2>
             <p style={{ margin: '8px 0 0', color: '#4b5563' }}>
               Provide the information you want encoded in the QR code. Required fields
@@ -120,16 +180,17 @@ export default function EquipmentCreate() {
             <button
               type="submit"
               form="equipment-form"
+              disabled={loading}
               style={{
                 padding: '10px 14px',
                 borderRadius: 8,
                 border: 'none',
-                background: '#2563eb',
+                background: loading ? '#9ca3af' : '#2563eb',
                 color: '#fff',
                 cursor: 'pointer'
               }}
             >
-              Save details
+              {loading ? 'Saving...' : 'Save details'}
             </button>
           </div>
         </header>
@@ -157,7 +218,7 @@ export default function EquipmentCreate() {
                   ) : (
                     <input
                       name={key}
-                      type={key === 'purchaseDate' ? 'date' : 'text'}
+                      type={key === 'installedAt' ? 'date' : 'text'}
                       value={formData[key]}
                       onChange={handleChange}
                       style={inputStyle}
@@ -170,13 +231,44 @@ export default function EquipmentCreate() {
             })}
           </div>
         </form>
+
+        {error && (
+          <div style={{
+            marginTop: 12,
+            padding: '10px 12px',
+            background: '#fef2f2',
+            border: '1px solid #fecdd3',
+            color: '#b91c1c',
+            borderRadius: 8
+          }}>
+            {error}
+          </div>
+        )}
       </section>
 
       {submitted && (
         <section style={cardStyle}>
           <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0 }}>Preview</h3>
-            <span style={{ color: '#6b7280', fontSize: 13 }}>Ready to generate QR code</span>
+            <div>
+              <h3 style={{ margin: 0 }}>Equipment created</h3>
+              <p style={{ margin: '4px 0 0', color: '#4b5563' }}>
+                QR code generated for <strong>{submitted.equipment.shortId}</strong>.
+              </p>
+            </div>
+            <a
+              href={submitted.labelUrl.startsWith('http') ? submitted.labelUrl : `${API_BASE_URL}${submitted.labelUrl}`}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: '#2563eb',
+                color: '#fff',
+                textDecoration: 'none'
+              }}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Download label
+            </a>
           </header>
           <dl
             style={{
@@ -186,17 +278,95 @@ export default function EquipmentCreate() {
               marginTop: 12
             }}
           >
-            {(Object.keys(submitted) as (keyof EquipmentForm)[]).map((key) => (
+            {(Object.keys(formData) as (keyof EquipmentForm)[]).map((key) => (
               <div key={key}>
                 <dt style={{ fontSize: 12, color: '#6b7280' }}>{fieldLabels[key]}</dt>
                 <dd style={{ margin: '2px 0 0', fontWeight: 600 }}>
-                  {submitted[key] || <span style={{ color: '#9ca3af' }}>Not provided</span>}
+                  {(submitted.equipment as any)[key] || 'Not provided'}
                 </dd>
               </div>
             ))}
           </dl>
+          <div style={{ marginTop: 12, color: '#6b7280', fontSize: 13 }}>
+            Token stored for this QR code: <code>{submitted.token}</code>
+          </div>
         </section>
       )}
+
+      <section style={cardStyle}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p style={{ color: '#6b7280', margin: 0 }}>Existing equipment</p>
+            <h3 style={{ margin: '4px 0 0' }}>Database records</h3>
+          </div>
+          <button
+            type="button"
+            onClick={loadExisting}
+            disabled={loadingExisting}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid #d0d7de',
+              background: '#fff',
+              cursor: 'pointer'
+            }}
+          >
+            {loadingExisting ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </header>
+        {loadingExisting && <p style={{ color: '#6b7280' }}>Loading equipment from database...</p>}
+        {!loadingExisting && existing.length === 0 && (
+          <p style={{ color: '#6b7280' }}>No equipment found in the database yet.</p>
+        )}
+        {existing.length > 0 && (
+          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+            {existing.map((item) => (
+              <article
+                key={item.id}
+                style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>{item.shortId}</strong>
+                  <span style={{ fontSize: 12, color: '#6b7280' }}>
+                    {new Date(item.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <dl style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 4, margin: 0 }}>
+                  <div>
+                    <dt style={{ fontSize: 12, color: '#6b7280' }}>Model</dt>
+                    <dd style={{ margin: 0 }}>{item.model || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt style={{ fontSize: 12, color: '#6b7280' }}>Serial</dt>
+                    <dd style={{ margin: 0 }}>{item.serialNumber || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt style={{ fontSize: 12, color: '#6b7280' }}>Location</dt>
+                    <dd style={{ margin: 0 }}>{item.location || '—'}</dd>
+                  </div>
+                </dl>
+                {item.qrcodes.length > 0 && (
+                  <a
+                    href={`${API_BASE_URL}/labels/${item.shortId}.pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      padding: '8px 10px',
+                      background: '#2563eb',
+                      color: '#fff',
+                      borderRadius: 6,
+                      textDecoration: 'none',
+                      textAlign: 'center'
+                    }}
+                  >
+                    View latest label
+                  </a>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }
