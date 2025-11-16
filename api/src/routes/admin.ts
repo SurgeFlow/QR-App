@@ -72,6 +72,14 @@ router.post('/equipment', async (req, res) => {
   });
 });
 
+router.get('/equipment', async (_req, res) => {
+  const equipment = await prisma.equipment.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { qrcodes: true }
+  });
+  res.json(equipment);
+});
+
 router.get('/equipment/:id', async (req, res) => {
   const id = req.params.id;
   const equipment = await prisma.equipment.findUnique({
