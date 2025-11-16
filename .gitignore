@@ -50,3 +50,4 @@ coverage/
 # Other temporary files
 tmp/
 temp/
+*.db
